@@ -1,0 +1,67 @@
+README.db-backup
+----------------
+
+Evergreen uses the PostgreSQL database for it's backend data store.  In order
+to correctly back up this database, specific steps must be taken.  An rsync
+or tar/cpio archive of the data directory is not sufficient!
+
+For more information about why and how PostgreSQL backups work, see:
+
+http://www.postgresql.org/docs/8.3/static/continuous-archiving.html
+
+
+
+------------ Overview
+
+Included in this directory are two scripts:
+ * eg-db-backup.sh
+ * eg-wal-archive.sh
+
+These scripts facilitate the correct backup procedures for PostgreSQL in an
+Evergreen environment.  Both must be edited to configure them for use in
+a new setup.
+
+
+
+------------- eg-db-backup.sh
+
+The eg-db-backup.sh script should be run on a regular basis, normally
+nightly, from the postgres user's crontab file.  For example:
+
+0 6 * * * /home/postgres/eg-db-backup.sh
+
+
+This will create a base backup every morning at 6AM.
+
+
+
+------------- eg-wal-archive.sh
+
+The eg-wal-archive.sh is a PostgreSQL WAL archive_command-compatable script
+which will continuously archive the transaction files (WAL) that PostgreSQL
+generates as Evergreen transactions are processed.  To use this script,
+set the archive_command variable in your production postgresql.conf file to:
+
+archive_command = '/home/postgres/eg-wal-archive.sh %p %f'
+
+(Assuming, of course, that /home/postgres/eg-wal-archive.sh is the path to the
+script on your system).  Some versions of PostgreSQL will require a separate
+archive_mode setting be enabled in order to begin archiving WAL files.
+
+
+
+------------- Cleaning up
+
+PostgreSQL backups are relatively large, and you only need to keep the most
+recent base backup plus and WAL generated after the start of the backup in
+order to recover.  To remove older backups, the following crontab entries are
+useful:
+
+
+0 5 * * * for i in `find /path/to/backup/directory/ -ctime +2`; do rm $i 2>/dev/null; done
+
+The path in the above 'find' command should match the directory into which you
+are archiving both base backups and WAL files.  This should be added to the
+postgres user's crontab on the database server, and the crontab of the
+configured ARCHIVE_USER on any remote archive server.
+
