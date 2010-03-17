@@ -1,5 +1,4 @@
 #!/bin/bash
-#!/bin/bash
 #    Evergreen WAL archiving script
 #    Copyright (C) 2008-2010 Equinox Software Inc.
 #    Mike Rylander <mrylander@gmail.com>
