@@ -1,0 +1,16 @@
+The scripts in this directory are used to produce
+a periodic report in text format of bibs and holdings
+in an Evergreen database for submission to collectionHQ.
+
+Installation and usage:
+
+[1] Run functions.sql in your (reporting) Evergreen database
+    to create the collectionHQ schema and a couple functions.
+[2] Edit extract.sh, get_bibs.sql, and get_items.sql to
+    put in your library code and FTP credentials with collectionHQ and
+    email parameters for the notification email that extract.sh can
+    send.
+[3] Run extract.sh manually or set up a periodic cronjob, for example:
+
+0 2 20 * * cd /home/esi/collectionHQ && ./extract.sh
+
