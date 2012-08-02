@@ -60,12 +60,13 @@ CREATE OR REPLACE FUNCTION collectionHQ.quote (TEXT) RETURNS TEXT AS $$
 $$ LANGUAGE PLPGSQL STRICT STABLE;
 
 
-CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT) RETURNS TEXT AS $$
--- Usage: SELECT collectionHQ.write_item_rows_to_stdout ('LIBRARYCODE');
+CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RETURNS TEXT AS $$
+-- Usage: SELECT collectionHQ.write_item_rows_to_stdout ('LIBRARYCODE',org_unit_id);
 
   DECLARE
     item BIGINT;
     authority_code ALIAS FOR $1;
+	org_unit_id ALIAS for $2;
     lms_bib_id TEXT;
     library_code TEXT;
     bar_code TEXT;
@@ -95,7 +96,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT) RETURNS
   BEGIN
 
     FOR item IN
-      EXECUTE ('SELECT id FROM asset.copy WHERE NOT deleted ORDER BY id;')
+      EXECUTE ('SELECT id FROM asset.copy WHERE NOT deleted AND circ_lib IN (SELECT id FROM actor.org_unit_descendants(' || org_unit_id || ')) ORDER BY id;')
     LOOP
 
       EXECUTE ('SELECT cn.record FROM asset.call_number cn, asset.copy c WHERE c.call_number = cn.id AND c.id = ' || item || ';') INTO lms_bib_id;
@@ -171,11 +172,12 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT) RETURNS
 
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT) RETURNS TEXT AS $$
--- Usage: SELECT collectionHQ.write_bib_rows_to_stdout('LIBRARYCODE');
+CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RETURNS TEXT AS $$
+-- Usage: SELECT collectionHQ.write_bib_rows_to_stdout('LIBRARYCODE', org_unit_id);
 
   DECLARE
     library_service_code ALIAS FOR $1;
+	org_unit_id ALIAS FOR $2;
     isbn TEXT := '';
     title TEXT := '';
     author TEXT := '';
@@ -193,7 +195,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT) RETURNS 
   BEGIN
 
     FOR lms_bib_id IN
-      EXECUTE ('SELECT id FROM biblio.record_entry;')
+      EXECUTE ('SELECT bre.id FROM biblio.record_entry bre JOIN asset.call_number acn ON (acn.record = bre.id) WHERE acn.owning_lib IN (SELECT id FROM actor.org_unit_descendants(' || org_unit_id || ')) AND NOT acn.deleted;')
     LOOP
 
       EXECUTE (E'SELECT isbn[1] FROM reporter.materialized_simple_record r WHERE r.id = ' || lms_bib_id || ';') INTO isbn;
