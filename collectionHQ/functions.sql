@@ -195,7 +195,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RET
   BEGIN
 
     FOR lms_bib_id IN
-      EXECUTE ('SELECT bre.id FROM biblio.record_entry bre JOIN asset.call_number acn ON (acn.record = bre.id) WHERE acn.owning_lib IN (SELECT id FROM actor.org_unit_descendants(' || org_unit_id || ')) AND NOT acn.deleted;')
+      EXECUTE ('SELECT bre.id FROM biblio.record_entry bre JOIN asset.call_number acn ON (acn.record = bre.id) WHERE acn.owning_lib IN (SELECT id FROM actor.org_unit_descendants(' || org_unit_id || ')) AND NOT acn.deleted AND NOT bre.deleted;')
     LOOP
 
       EXECUTE (E'SELECT isbn[1] FROM reporter.materialized_simple_record r WHERE r.id = ' || lms_bib_id || ';') INTO isbn;
