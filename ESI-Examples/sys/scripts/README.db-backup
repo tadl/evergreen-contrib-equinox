@@ -1,13 +1,13 @@
 README.db-backup
 ----------------
 
-Evergreen uses the PostgreSQL database for it's backend data store.  In order
+Evergreen uses the PostgreSQL database for its backend data store.  In order
 to correctly back up this database, specific steps must be taken.  An rsync
 or tar/cpio archive of the data directory is not sufficient!
 
 For more information about why and how PostgreSQL backups work, see:
 
-http://www.postgresql.org/docs/8.3/static/continuous-archiving.html
+http://www.postgresql.org/docs/9.1/static/continuous-archiving.html
 
 
 
@@ -45,10 +45,13 @@ set the archive_command variable in your production postgresql.conf file to:
 archive_command = '/home/postgres/eg-wal-archive.sh %p %f'
 
 (Assuming, of course, that /home/postgres/eg-wal-archive.sh is the path to the
-script on your system).  Some versions of PostgreSQL will require a separate
-archive_mode setting be enabled in order to begin archiving WAL files.
+script on your system).  Two additional settings in postgresql.conf are also
+required:
 
+archive_mode = on
+wal_level = archive
 
+After making these changes, PostgreSQL must be restarted.
 
 ------------- Cleaning up
 
