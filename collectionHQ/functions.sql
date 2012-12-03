@@ -86,7 +86,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RE
   DECLARE
     item BIGINT;
     authority_code ALIAS FOR $1;
-	org_unit_id ALIAS for $2;
+    org_unit_id ALIAS for $2;
     lms_bib_id BIGINT;
     library_code TEXT;
     bar_code TEXT;
@@ -135,6 +135,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RE
       IF price IS NULL OR price = '' THEN
         SELECT collectionHQ.attempt_price((XPATH('//marc:datafield[@tag="020"][1]/marc:subfield[@code="c"]/text()', marc::XML, ARRAY[ARRAY['marc', 'http://www.loc.gov/MARC21/slim']]))[1]::TEXT)
         INTO price
+        FROM biblio.record_entry
         WHERE id = lms_bib_id;
       END IF;
       SELECT REPLACE(NOW()::DATE::TEXT, '-', '') INTO extract_date;
@@ -207,7 +208,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RET
 
   DECLARE
     library_service_code ALIAS FOR $1;
-	org_unit_id ALIAS FOR $2;
+    org_unit_id ALIAS FOR $2;
     isbn TEXT := '';
     title TEXT := '';
     author TEXT := '';
