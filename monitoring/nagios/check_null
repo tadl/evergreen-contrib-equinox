@@ -1,0 +1,114 @@
+#!/bin/sh
+# Copyright (C) 2008-2010  Equinox Software, Inc.
+# Written by Don McMorris <dmcmorris@esilibrary.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#
+# Author             : Don McMorris, Sys Admin, ESI
+# Modified           : Michael Tate, Sys Admin, ESI, to allow for a path from the command line
+# Purpose            : Look for excessive NULLS in the gateway logs
+
+USAGE="check_null <# mins to check> <WARNLIMIT> <CRITLIMIT> <LOG PATH>"
+# <# mins to check>  : Check for errors in the last # minutes
+# <WARNLIMIT>        : The number of NULLS in the logs at which to present a warning condition. 
+# <CRITLIMIT>        : The number of NULLS on the logs at which to present a critical condition.
+# <LOG PATH>         : The path to the log location.        
+#                    :   This plugin assumes that the logs will be dropped into folders for 
+#                    :    year (4 char), month (2 char), and day (2 char).  
+#                    :   If no path is entered, it will default to "/var/log/evergreen/prod/"
+
+if [ -n "$1" ]; then
+  if [[ $1 == *help* ]]; then
+  else
+
+PERIOD=$1
+WARNLIMIT=$2
+CRITLIMIT=$3
+  if [ -n "$4" ]; then
+     LOGPATH="$4/$(date +%Y/%m/%d)"
+  else
+     LOGPATH="/var/log/evergreen/prod/$(date +%Y/%m/%d)"
+  fi
+
+PREVTOT=0
+LOGFILE="$LOGPATH/gateway.$(date +%H).log"
+
+if [ $(date +%H | cut -b1) = 0 ]; then
+	CURRHOUR=$(date +%H | cut -b2)
+else
+	CURRHOUR=$(date +%H)
+fi
+
+if [ $(date +%M | cut -b1) = 0 ]; then
+        CURRMIN=$(date +%M | cut -b2 )
+else
+        CURRMIN=$(date +%M)
+fi
+
+if [ $CURRMIN -lt $PERIOD ]; then
+	# How many minutes of the last hour do we need to check?
+        TMPDIFFM2=$((60 - $(($PERIOD - $CURRMIN))))
+
+	# This logic will mean that "Returning NULL"'s logged at the late 2300 hour will not be counted during the early Midnight hour check.
+	# This is acceptable for now.
+        if [ $CURRHOUR -gt 0 ]; then
+		# define LOGFILE2 (last hours' log)
+		if [ $CURRHOUR -gt 11 ]; then
+			LOGFILE2="$LOGPATH/gateway.$(($CURRHOUR - 1)).log"
+		else
+			LOGFILE2="$LOGPATH/gateway.0$(($CURRHOUR - 1)).log"
+		fi
+
+		while [ $TMPDIFFM2 -lt 60 ]; do
+			PREVTOT=$(($PREVTOT + $(grep "Returning NULL" $LOGFILE2 | cut -d":" -f2 | grep -c $TMPDIFFM2)))
+			TMPDIFFM2=$(($TMPDIFFM2 + 1))
+		done
+        fi
+	while [ $TMPDIFF1 -le $CURRMIN ]; do
+		PREVTOT=$(($PREVTOT + $(grep "Returning NULL" $LOGFILE | cut -d":" -f2 | grep -c $TMPDIFF1)))
+	        TMPDIFF1=$(($TMPDIFF1 + 1))
+	done
+else
+	TMPDIFF1=$(($CURRMIN-$PERIOD))
+	while [ $TMPDIFF1 -le $CURRMIN ]; do
+		PREVTOT=$(($PREVTOT + $(grep "Returning NULL" $LOGFILE | cut -d":" -f2 | grep -c $TMPDIFF1)))
+	        TMPDIFF1=$(($TMPDIFF1 + 1))
+	done
+
+fi
+
+
+TOPSERVER=$(grep "Returning NULL" $LOGFILE | cut -d" " -f3 | sort | uniq -c | sort -nr | head -1)
+
+if [ "$TOPSERVER" != null ]; then
+	SVRMSG=" (Top server this hour: $TOPSERVER)"
+else
+	SVRMSG="."
+fi
+
+if [ $PREVTOT -ge $CRITLIMIT ]; then
+        echo "CRIT: $PREVTOT NULLs returned in past $PERIOD minutes$SVRMSG"
+        exit 2
+elif [ $PREVTOT -ge $WARNLIMIT ]; then
+        echo "WARN: $PREVTOT NULLs returned in the past $PERIOD minutes$SVRMSG"
+        exit 1
+elif [ $PREVTOT -lt $WARNLIMIT ]; then
+        echo "OK: $PREVTOT NULLs returned in the past $PERIOD minutes$SVRMSG"
+        exit 0
+else
+        echo "WARN: An error has occurred $PREVTOT $PERIOD"
+        exit 1
+fi
+
+
+fi
+

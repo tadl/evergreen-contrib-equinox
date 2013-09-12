@@ -1,0 +1,69 @@
+#!/bin/sh
+# Copyright (C) 2008-2013  Equinox Software, Inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# Author       : Michael Tate, Sys Admin, ESI, to allow for a path from the command line
+#                Based on code written by Don McMorris <dmcmorris@esilibrary.com>; see check_null
+# Purpose      : Look for excessive NOT CONNECTEDS in the osrfsys logs
+
+USAGE="check_notconnected <LOG PATH>"
+# <LOG PATH>   : The path to the log location.        
+#              :   This plugin assumes that the logs will be dropped into folders for 
+#              :    year (4 char), month (2 char), and day (2 char).  
+#              :   If no path is entered, it will default to "/var/log/evergreen/prod/"
+
+
+if [ -n "$1" ]; then
+ if [[ $1 == *help* ]]; then
+   EXITSTATUS="$USAGE"
+   EXITCODE="0"
+ else
+
+
+  if [ -n "$1" ]; then
+   LOGPATH="$1/$(date +%Y/%m/%d)"
+  else
+   LOGPATH="/var/log/evergreen/prod/$(date +%Y/%m/%d)"
+  fi
+
+LOGFILE="$LOGPATH/osrfsys.$(date +%H).log"
+
+
+NCCOUNT=`grep -c 'IS NOT CONNECTED TO THE NETWORK' $LOGFILE`
+
+  if [ "$NCCOUNT" -gt "0" ]; then
+	TOPSERVER=$(grep "IS NOT CONNECTED TO THE NETWORK" $LOGFILE | cut -d" " -f3 | sort | uniq -c | sort -nr | head -1)
+	SVRMSG=" (Top server this hour: $TOPSERVER)"
+  else
+	SVRMSG="."
+  fi
+ 
+  if [ "$NCCOUNT" -ge "4" ]; then
+   EXITSTATUS="CRIT: $NCCOUNT NOT CONNECTEDs returned this hour:$SVRMSG"
+   EXITCODE="2"
+  elif [ "$NCCOUNT" -ge "2" ]; then
+   EXITSTATUS="WARN: $NCCOUNT NOT CONNECTEDs returned this hour:$SVRMSG"
+   EXITCODE="1"
+  elif [ "$NCCOUNT" -lt "2" ]; then
+   EXITSTATUS="OK: $NCCOUNT NOT CONNECTEDs returned this hour$SVRMSG"
+   EXITCODE="0"
+  else
+   EXITSTATUS="WARN: An error has occurred in the plugin"
+   EXITCODE="1"
+ fi
+
+ fi
+fi
+
+echo "$EXITSTATUS"
+exit $EXITCODE
+

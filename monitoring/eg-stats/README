@@ -1,0 +1,94 @@
+ON THE CENTRAL SYSLOG MACHINE
+
+syslog-ng setup:
+
+- Add the following lines in the appropriate places in /etc/syslog-ng/syslog-ng.conf (edit/replace the filter f_system line don't duplicate it)
+
+edit /etc/syslog-ng/syslog-ng.conf destination d_external_eg_stats { # f_egstats
+file("/var/log/evergreen/prod/$YEAR/$MONTH/$DAY/eg_stats.log",
+template("$YEAR-$MONTH-$DAY $HOUR:$MIN:$SEC $HOST $MSG\n") owner(nagios) group(nagios) template-escape(no)); };
+
+filter f_egstats { match("eg-stats") and not match("CRON"); };
+filter f_system { not facility(local0, local1, local2, local3, local4, local5, local6, local7) and not filter(f_egstats); };
+
+log { source(s_all); filter(f_egstats); destination(d_external_eg_stats); };
+
+Restart syslog:
+
+/etc/init.d/syslog-ng restart
+
+---------------
+
+rsyslog setup:
+
+- Add the following lines in the appropriate places in /etc/rsyslog.d/evergreen-rsyslog.conf [ wget -O evergreen-rsyslog.conf "http://git.evergreen-ils.org/?p=Evergreen.git;a=blob_plain;f=Open-ILS/examples/evergreen-rsyslog.conf" ]
+
+$template egstats,"/var/log/remote/evergreen/%$YEAR%/%$MONTH%/%$DAY%/eg_stats.%$HOUR%.log"
+
+if $programname contains 'eg-stats' then
+{
+local0.info ?egstats;msgformat
+& ~
+}
+
+Restart rsyslog:
+
+/etc/init.d/rsyslog restart
+
+--------------------------
+
+ON THE ASP MACHINES
+
+cd /usr/share/perl5 && sudo wget -O Logger.pm "http://git.evergreen-ils.org/?p=contrib/equinox.git;a=blob_plain;f=monitoring/eg-stats/Logger.pm"
+cd /usr/bin && sudo wget -O "http://git.evergreen-ils.org/?p=contrib/equinox.git;a=blob_plain;f=monitoring/eg-stats/eg-stats-collector-remote-log.pl"
+sudo chmod +x eg-stats-collector-remote-log.pl
+
+syslog-ng:
+cd /usr/bin && sudo wget -O "http://git.evergreen-ils.org/?p=contrib/equinox.git;a=blob_plain;f=monitoring/eg-stats/eg-stats-keepalive_syslog-ng.sh"
+
+rsyslog:
+cd /usr/bin && sudo wget -O "http://git.evergreen-ils.org/?p=contrib/equinox.git;a=blob_plain;f=monitoring/eg-stats/eg-stats-keepalive_rsyslog.sh"
+
+sudo chmod +x eg-stats-keepalive.sh
+
+-----------------
+
+syslog-ng setup:
+
+- Add the following lines to the bottom of /etc/syslog-ng/syslog-ng.conf: #eg-stats-collector
+source s_file_eg-statslog { file("/var/log/evergreen/prod/$YEAR/$MONTH/$DAY/eg-stats.log" follow_freq(1)); };
+log { source(s_file_eg-statslog); destination(d_ext); };
+
+Restart syslog:
+
+/etc/init.d/syslog-ng restart
+
+---------------
+
+rsyslog setup:
+
+- Add the following lines below the RULES section (replace syslog_server with your central syslog machine name or ip):
+#
+# Evergreen
+#
+local0.*   @syslog_server:514
+local1.*   @syslog_server:514
+local2.*   @syslog_server:514
+local3.*   @syslog_server:514
+local6.*   @syslog_server:514
+local7.*   @syslog_server:514
+local0.*   ~
+local1.*   ~
+local2.*   ~
+local3.*   ~
+local6.*   ~
+local7.*   ~
+
+Restart rsyslog:
+
+/etc/init.d/rsyslog restart
+
+-------------------------------
+
+Edit crontab: crontab -e Insert this line: */1 * * * * /usr/bin/eg-stats-keepalive.sh >/dev/null 2>&1 
+
