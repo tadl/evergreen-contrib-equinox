@@ -1,0 +1,74 @@
+#!/bin/bash
+# Copyright (C) 2008-2011  Equinox Software, Inc.
+# Written by Michael Tate <mtate@esilibrary.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#
+# Author       : MTate, Sys Admin, ESI
+# Purpose      : Count AT pending events
+# Usage        : check_at_pending <db; default to "evergreen" if empty> <username; default "evergreen"> <port database runs on, default "5432">
+
+if [[ $1 == *help* ]]; then
+  echo "Usage: check_dbquery <db; default to 'evergreen' if empty> <username; default 'evergreen'> <port database runs on, default '5432'>"
+  exit 0
+fi
+
+# SET/GET VARIABLES
+ # database name
+ if [ -n "$1" ]; then
+   DBNAME="$1"
+ else
+   DBNAME="evergreen"
+ fi
+
+ # database user name
+ if [ -n "$2" ]; then
+   DBUSER="$1"
+ else
+   DBUSER="evergreen"
+ fi
+
+ # port database runs on
+ if [ -n "$3" ]; then
+   DBPORT="$3"
+ else
+   DBPORT=5432
+ fi
+
+# Execute AT Pending Count
+ATPENDING=`PGUSER=postgres psql -U $DBUSER -d $DBNAME -p $DBPORT -c "select count(*) from action_trigger.event where state ='pending';"|sed -n '3'p`
+
+CTWARN=900000	# These values will need modification
+CTCRIT=1000000	# to what is normal for your environment.
+                # Run the check manually for two weeks 
+                # to gather the needed info
+
+# Result Analysis
+ if [ $ATPENDING -gt $CTCRIT ]; then
+   EXITSTATUS="CRITICAL: $ATPENDING AT events pending"
+   EXITCODE=2
+ elif [ $ATPENDING -gt $CTWARN ]; then
+   EXITSTATUS="WARNING:  $ATPENDING AT events pending"
+   EXITCODE=1
+ elif [ $ATPENDING -gt 0 ]; then
+   EXITSTATUS="OK:  $ATPENDING AT events pending"
+   EXITCODE=0
+ else
+   if [[ $ATPENDING == "-00" ]]; then
+     EXITSTATUS="OK: No AT events pending"
+     EXITCODE=0
+   fi
+ fi
+
+# Return results
+echo "$EXITSTATUS"
+exit $EXITCODE

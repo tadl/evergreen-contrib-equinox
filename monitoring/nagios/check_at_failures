@@ -1,0 +1,69 @@
+#!/bin/bash
+# Copyright (C) 2008-2013  Equinox Software, Inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# Author       : Michael Tate, Sys Admin, ESI
+# Purpose      : Check for Action Trigger Event Failures and list them.
+USAGE="check_at_failures  <db; default to 'evergreen' if empty> <username; default 'evergreen'> <port database runs on, default '5432'> (CRIT > 1)"
+
+if [[ $1 == *help* ]]; then
+   echo "$USAGE"
+   exit 0
+fi
+
+# GET/SET VARIABLES
+ # database name
+ if [ -n "$1" ]; then
+   DBNAME="$1"
+ else
+   DBNAME="evergreen"
+ fi
+
+ # database user name
+ if [ -n "$2" ]; then
+   DBUSER="$2"
+ else
+   DBUSER="evergreen"
+ fi
+
+ # port database runs on
+ if [ -n "$3" ]; then
+   DBPORT="$3"
+ else
+   DBPORT=5432
+ fi
+
+# Execute AT Error Count
+AT_ERR_COUNT=`PGUSER=postgres psql -U $DBUSER -d $DBNAME -p $DBPORT -c "select count(name) from action_trigger.event_definition where id IN (select distinct event_def from action_trigger.event where (state='error' or error_output is not null) and date(add_time)=date(now()));"|sed -n 3p|cut -d: -f1|sed 's/^[ \t]*//'`
+
+# Result Analysis
+ if [ "$AT_ERR_COUNT" -gt 1 ]; then
+   AT_ERR_LIST=`PGUSER=postgres psql -U $DBUSER -d $DBNAME -p $DBPORT -c "select name as ename from action_trigger.event_definition where id IN (select distinct event_def from action_trigger.event where (state='error' or error_output is not null) and date(add_time)=date(now()));"|grep -v "ename\|----\|rows"|awk '{printf "%s,",$0} END {print ""}'`
+   EXITSTATUS="CRIT: $AT_ERR_COUNT Action Trigger Events Have Failed: ($AT_ERR_LIST)"
+   EXITCODE=2
+ elif [ "$AT_ERR_COUNT" -gt 0 ]; then
+   AT_ERR_NAMES=`PGUSER=postgres psql -U $DBUSER -d $DBNAME -p $DBPORT -c "select name as ename from action_trigger.event_definition where id IN (select distinct event_def from action_trigger.event where (state='error' or error_output is not null) and date(add_time)=date(now()));"|grep -v "ename\|----\|row"`
+   EXITSTATUS="CRIT: Action Trigger Event Has Failed: (`echo -n $AT_ERR_NAMES`)"
+   EXITCODE=2
+ elif [ "$AT_ERR_COUNT" -eq 0 ]; then
+   EXITSTATUS="OK: No Action Trigger Event Failures"
+   EXITCODE=0
+ else
+   EXITSTATUS="WARN: Something is wrong with the plugin."
+   EXITCODE=1
+ fi
+
+# Return results
+echo "$EXITSTATUS"
+exit $EXITCODE
+
+
