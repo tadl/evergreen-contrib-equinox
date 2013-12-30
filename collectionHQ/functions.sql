@@ -79,8 +79,8 @@ CREATE OR REPLACE FUNCTION collectionHQ.quote (TEXT) RETURNS TEXT AS $$
   END;
 $$ LANGUAGE PLPGSQL STRICT STABLE;
 
-
-CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RETURNS TEXT AS $$
+DROP FUNCTION IF EXISTS collectionHQ.write_item_rows_to_stdout (TEXT, INT);
+CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RETURNS VOID AS $$
 -- Usage: SELECT collectionHQ.write_item_rows_to_stdout ('LIBRARYCODE',org_unit_id);
 
   DECLARE
@@ -203,7 +203,8 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RE
 
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RETURNS TEXT AS $$
+DROP FUNCTION IF EXISTS collectionHQ.write_bib_rows_to_stdout(TEXT, INT);
+CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RETURNS VOID AS $$
 -- Usage: SELECT collectionHQ.write_bib_rows_to_stdout('LIBRARYCODE', org_unit_id);
 
   DECLARE
