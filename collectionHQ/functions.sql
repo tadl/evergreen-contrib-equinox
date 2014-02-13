@@ -128,7 +128,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RE
       WHERE id = lms_bib_id;
       SELECT collectionHQ.attempt_price(ac.price::TEXT), barcode, ac.status,
              REPLACE(create_date::DATE::TEXT, '-', ''),
-             CASE floating WHEN TRUE THEN 'Y' ELSE NULL END
+             CASE WHEN floating::int > 0 THEN 'Y' ELSE NULL END
       INTO price, bar_code, status, date_added, rotating_stock
       FROM asset.copy ac 
       WHERE id = item;
