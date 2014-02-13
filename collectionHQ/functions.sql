@@ -246,7 +246,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RET
       FROM biblio.record_entry
       WHERE id = lms_bib_id;
 
-      SELECT circ_modifier INTO lms_item_type FROM asset.copy c, asset.call_number cn WHERE cn.record = lms_bib_id AND cn.id = c.call_number AND NOT cn.deleted AND NOT c.deleted LIMIT 1;
+      SELECT circ_modifier INTO lms_item_type FROM asset.copy c, asset.call_number cn WHERE cn.record = lms_bib_id AND c.circ_lib IN (SELECT id FROM actor.org_unit_descendants(org_unit_id)) AND cn.id = c.call_number AND NOT cn.deleted AND NOT c.deleted LIMIT 1;
       SELECT REPLACE(NOW()::DATE::TEXT, '-', '') INTO extract_date;
   
       output := 
