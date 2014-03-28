@@ -79,8 +79,8 @@ CREATE OR REPLACE FUNCTION collectionHQ.quote (TEXT) RETURNS TEXT AS $$
   END;
 $$ LANGUAGE PLPGSQL STRICT STABLE;
 
-
-CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RETURNS TEXT AS $$
+DROP FUNCTION IF EXISTS collectionHQ.write_item_rows_to_stdout (TEXT, INT);
+CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RETURNS VOID AS $$
 -- Usage: SELECT collectionHQ.write_item_rows_to_stdout ('LIBRARYCODE',org_unit_id);
 
   DECLARE
@@ -128,7 +128,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RE
       WHERE id = lms_bib_id;
       SELECT collectionHQ.attempt_price(ac.price::TEXT), barcode, ac.status,
              REPLACE(create_date::DATE::TEXT, '-', ''),
-             CASE floating WHEN TRUE THEN 'Y' ELSE NULL END
+             CASE WHEN floating::INT > 0 THEN 'Y' ELSE NULL END
       INTO price, bar_code, status, date_added, rotating_stock
       FROM asset.copy ac 
       WHERE id = item;
@@ -203,7 +203,8 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RE
 
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RETURNS TEXT AS $$
+DROP FUNCTION IF EXISTS collectionHQ.write_bib_rows_to_stdout(TEXT, INT);
+CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RETURNS VOID AS $$
 -- Usage: SELECT collectionHQ.write_bib_rows_to_stdout('LIBRARYCODE', org_unit_id);
 
   DECLARE
@@ -245,7 +246,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RET
       FROM biblio.record_entry
       WHERE id = lms_bib_id;
 
-      SELECT circ_modifier INTO lms_item_type FROM asset.copy c, asset.call_number cn WHERE cn.record = lms_bib_id AND cn.id = c.call_number AND NOT cn.deleted AND NOT c.deleted LIMIT 1;
+      SELECT circ_modifier INTO lms_item_type FROM asset.copy c, asset.call_number cn WHERE cn.record = lms_bib_id AND c.circ_lib IN (SELECT id FROM actor.org_unit_descendants(org_unit_id)) AND cn.id = c.call_number AND NOT cn.deleted AND NOT c.deleted LIMIT 1;
       SELECT REPLACE(NOW()::DATE::TEXT, '-', '') INTO extract_date;
   
       output := 

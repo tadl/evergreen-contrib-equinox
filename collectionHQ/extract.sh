@@ -53,6 +53,7 @@ function format_data {
 function upload_data {
   gzip --best $FILE
   ftp -v -n $FTPSITE <<END_SCRIPT
+passive
 quote USER $FTPUSER
 quote PASS $FTPPASS
 binary
