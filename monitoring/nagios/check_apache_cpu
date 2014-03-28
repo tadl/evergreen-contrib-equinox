@@ -1,0 +1,48 @@
+#!/bin/bash
+# Copyright (C) 2008-2013  Equinox Software, Inc.
+# Written by Michael Tate <mtate@esilibrary.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#
+# Author       : Michael Tate, Sys Admin, ESI
+# Purpose      : Check to see if any Apache processes are consuming 100% of CPU, and ennumerate them.
+USAGE="check_apachecpu  (WARN 1, CRIT 2+)"
+if [[ $1 == *help* ]]; then
+  echo "Usage: $USAGE"
+  exit 0
+fi
+
+HIGHESTPROC=`ps -Ao pcpu,pid,args | grep -i apache | grep -v grep | sort -rn|cut -d"." -f1|head -n1`
+TOPPROCLIST=`ps -Ao pcpu,pid,args | grep -i apache | grep -v grep | sort -rn|cut -d"." -f1|head -n4`
+HIGPPROCS=0
+
+for i in `ps -Ao pcpu,pid,args | grep -i apache | grep -v grep | sort -rn|cut -d"." -f1|head -n4`; do
+  if [ "$i" -gt "80" ]; then
+    HIGPPROCS=$((HIGHPROCS++))
+  fi
+done
+
+
+if [ "$HIGHPROCS" -gt "1" ]; then
+   EXITSTATUS="CRIT:  $HIGHPROCS High CPU Apache processes; Highest: $HIGHESTPROC%"
+   EXITCODE="2"
+elif [ "$HIGHPROCS" -gt "0" ]; then
+   EXITSTATUS="WARN: $HIGHPROCS High CPU Apache process; Usage: $HIGHESTPROC%"
+   EXITCODE="1"
+else
+   EXITSTATUS="OK: Highest CPU usage $HIGHESTPROC%"
+   EXITCODE="0"
+fi
+
+echo "$EXITSTATUS"
+exit $EXITCODE
+

@@ -13,34 +13,18 @@
 # GNU General Public License for more details.
 #
 #
-# Author             : Don McMorris, Sys Admin, ESI
-# Modified           : Michael Tate, Sys Admin, ESI, to allow for a path from the command line
-# Purpose            : Look for excessive NULLS in the gateway logs
+# Author       : Don McMorris, Sys Admin, ESI
+# Purpose      : Look for excessive NULLS in the gateway logs
+# Usage        : check_null <# mins to check> <WARNLIMIT> <CRITLIMIT>
 
-USAGE="check_null <# mins to check> <WARNLIMIT> <CRITLIMIT> <LOG PATH>"
-# <# mins to check>  : Check for errors in the last # minutes
-# <WARNLIMIT>        : The number of NULLS in the logs at which to present a warning condition. 
-# <CRITLIMIT>        : The number of NULLS on the logs at which to present a critical condition.
-# <LOG PATH>         : The path to the log location.        
-#                    :   This plugin assumes that the logs will be dropped into folders for 
-#                    :    year (4 char), month (2 char), and day (2 char).  
-#                    :   If no path is entered, it will default to "/var/log/evergreen/prod/"
 
-if [ -n "$1" ]; then
-  if [[ $1 == *help* ]]; then
-  else
-
-PERIOD=$1
 WARNLIMIT=$2
 CRITLIMIT=$3
-  if [ -n "$4" ]; then
-     LOGPATH="$4/$(date +%Y/%m/%d)"
-  else
-     LOGPATH="/var/log/evergreen/prod/$(date +%Y/%m/%d)"
-  fi
+PERIOD=$1
+# Note: These should really be checked to ensure they are defined and within range...
 
 PREVTOT=0
-LOGFILE="$LOGPATH/gateway.$(date +%H).log"
+LOGFILE="/var/log/evergreen/prod/$(date +%Y/%m/%d)/gateway.$(date +%H).log"
 
 if [ $(date +%H | cut -b1) = 0 ]; then
 	CURRHOUR=$(date +%H | cut -b2)
@@ -63,9 +47,9 @@ if [ $CURRMIN -lt $PERIOD ]; then
         if [ $CURRHOUR -gt 0 ]; then
 		# define LOGFILE2 (last hours' log)
 		if [ $CURRHOUR -gt 11 ]; then
-			LOGFILE2="$LOGPATH/gateway.$(($CURRHOUR - 1)).log"
+			LOGFILE2="/var/log/evergreen/prod/$(date +%Y/%m/%d)/gateway.$(($CURRHOUR - 1)).log"
 		else
-			LOGFILE2="$LOGPATH/gateway.0$(($CURRHOUR - 1)).log"
+			LOGFILE2="/var/log/evergreen/prod/$(date +%Y/%m/%d)/gateway.0$(($CURRHOUR - 1)).log"
 		fi
 
 		while [ $TMPDIFFM2 -lt 60 ]; do
@@ -107,8 +91,5 @@ elif [ $PREVTOT -lt $WARNLIMIT ]; then
 else
         echo "WARN: An error has occurred $PREVTOT $PERIOD"
         exit 1
-fi
-
-
 fi
 

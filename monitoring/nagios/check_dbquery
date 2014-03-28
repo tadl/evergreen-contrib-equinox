@@ -1,0 +1,72 @@
+#!/bin/bash
+# Copyright (C) 2008-2010  Equinox Software, Inc.
+# Written by Lee Dickens <leed@esilibrary.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#
+# Author       : Lee Dickens, Sys Admin, ESI
+# Updated      : 07-MAR-2011, Michael Tate, Sys Admin, ESI: Added arguments
+# Purpose      : Look for long-running queries: Warn when older than 5 hours, Critical at 7.
+USAGE="check_dbquery <db (default 'evergreen' if empty)> <username (default 'evergreen')> <port database runs on (default '5432')>"
+
+if [[ $1 == *help* ]]; then
+  echo "Usage: $USAGE"
+  exit 0
+fi
+
+## GET/SET Variables ##
+# database name
+if [ -n "$1" ]; then
+  dbname="$1"
+else
+  dbname="evergreen"
+fi
+
+# database user name
+if [ -n "$2" ]; then
+  dbuser="$1"
+else
+  dbuser="evergreen"
+fi
+
+# port database runs on
+if [ -n "$3" ]; then
+  dbport="$3"
+else
+  dbport=5432
+fi
+
+
+## Execute DB Query Count ##
+count=`PGUSER=postgres psql -U $dbuser -d $dbname -p $dbport -c "select now()-query_start from pg_stat_activity where current_query NOT LIKE '<IDL%' AND current_query NOT LIKE '%vacuum%' order by query_start asc limit 1;"|sed -n 3p|cut -d: -f1|sed 's/^[ \t]*//'`
+
+
+## Return results ##
+if [[ $count == "-00" ]]; then
+   echo "OK: No long running queries"
+   exit 0
+else 
+
+ if [ $count -gt "07" ]; then
+   echo "CRITICAL: Longest query running for over $count hours"
+   exit 2
+
+ elif [ $count -gt "05" ]; then 
+   echo "WARNING: Longest query running for over $count hours"
+   exit 1
+
+ else 
+   echo "OK: Longest query running for over $count hours"
+   exit 0
+ fi  
+fi
+

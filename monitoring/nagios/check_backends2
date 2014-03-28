@@ -1,0 +1,99 @@
+#!/bin/bash
+# Copyright (C) 2008-2010  Equinox Software, Inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# postgres Backend Count
+# Written by: Equinox Software, September 22, 2010 - Lee Dickens
+# Modified by: Equinox Software, March 13, 2014 - Michael Tate
+USAGE="check_backends2 <max_connnections (default 800 if empty)> <pool|pg (default pg if empty)>"
+if [[ $1 == *help* ]]; then
+  echo "Usage: $USAGE"
+  exit 0
+fi
+
+## GET/SET Variables ##
+# Use "max_connections" from postgresql.conf
+if [ -n "$1" ]; then
+  MAXCX=$1
+else
+  MAXCX="800"
+#  MAXCX=`grep max_connections $(find /etc/postgresql/ -name postgresql.conf|tail -n1)` | grep -v "^#"|tr -cd '[[:digit:]]{}'`
+fi
+
+# Platform: plain postgres or pgpool
+if [ -n "$2" ]; then
+  PLATCX=$2
+else
+  PLATCX="pg"
+fi
+
+if [[ $PLATCX == "pg" ]]; then
+ PGCX=$MAXCX
+ # PG warn and crit, high and low
+ PGCXWL=$(($PGCX/10))           # PostgreSQL number of connections WARN level, low (10% of max)
+ PGCXCL=$(($PGCXWL/2))          # PostgreSQL number of connections CRIT level, low (5% of max)
+ PGCXC=$(($PGCX-$PGCXWL))    # PostgreSQL number of connections CRIT level, high (90% of max)
+ PGCXW=$(($PGCXC-$PGCXWL))       # PostgreSQL number of connections WARN level, high (80% of max)
+ PGACT=`ps ax|grep -v grep | grep -c postgres`
+
+ if [ $PGACT -lt $PGCXCL ]; then
+   EXITSTATUS="CRIT: postgresql backends = $PGACT/$PGCX"
+   EXITCODE=2
+ elif [ $PGACT -lt $PGCXWL ]; then
+   EXITSTATUS="WARN: postgresql backends = $PGACT/$PGCX"
+   EXITCODE=1
+ elif [ $PGACT -gt $PGCXW ]; then
+   EXITSTATUS="WARN: postgresql backends = $PGACT/$PGCX"
+   EXITCODE=1
+ elif [ $PGACT -gt $PGCXW ]; then
+   EXITSTATUS="CRIT: postgresql backends = $PGACT/$PGCX"
+   EXITCODE=2
+ else
+   EXITSTATUS="OK: postgresql backends = $PGACT/$PGCX"
+   EXITCODE=0
+ fi
+
+elif [[ $PLATCX == "pool" ]]; then
+ POOLCX=$MAXCX
+ # PGPOOL warn and crit, high and low
+ POOLCXWL=$(($PGCX/10))           # PostgreSQL number of connections WARN level, low (10% of max)
+ POOLCXCL=$(($PGCXWL/2))          # PostgreSQL number of connections CRIT level, low (5% of max)
+ POOLCXC=$(($PGCX-$PGCXWL))    # PostgreSQL number of connections CRIT level, high (90% of max)
+ POOLCXW=$(($PGCXC-$PGCXWL))       # PostgreSQL number of connections WARN level, high (80% of max)
+ POOLACT=`ps ax|grep -v "wait\|grep" | grep -c pgpool`
+
+ if [ $POOLACT -lt $POOLACTCXCL ]; then
+   EXITSTATUS="CRIT: postgresql backends = $PGACT/$PGCX and pgpool backends = $POOLACT/$POOLACTCX"
+   EXITCODE=2
+ elif [ $POOLACT -lt $POOLACTCXWL ]; then
+   EXITSTATUS="WARN: postgresql backends = $PGACT/$PGCX and pgpool backends = $POOLACT/$POOLACTCX"
+   EXITCODE=1
+ elif [ $POOLACT -gt $POOLACTCXC ]; then
+   EXITSTATUS="CRIT: postgresql backends = $PGACT/$PGCX and pgpool backends = $POOLACT/$POOLACTCX"
+   EXITCODE=2
+ elif [ $POOLACT -gt $POOLACTCXW ]; then
+   EXITSTATUS="WARN: postgresql backends = $PGACT/$PGCX and pgpool backends = $POOLACT/$POOLACTCX"
+   EXITCODE=1
+ else
+   EXITSTATUS="OK: pgpool backends = $POOLACT/$POOLACTCX"
+   EXITCODE=0
+ fi
+
+else
+  echo "Usage: $USAGE"
+  exit 0
+fi
+
+
+echo "$EXITSTATUS"
+exit $EXITCODE
+

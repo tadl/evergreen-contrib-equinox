@@ -1,0 +1,57 @@
+#!/bin/bash
+# Copyright (C) 2008-2013  Equinox Software, Inc.
+# Written by Michael Tate <mtate@esilibrary.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#
+# Author       : Michael Tate, Sys Admin, ESI
+# Purpose      : Compare available MEM to SWAP
+USAGE="check_mem_swap (CRIT if swapuse > freemem)"
+if [[ $1 == *help* ]]; then
+  echo "Usage: $USAGE"
+  exit 0
+fi
+
+# RULE: avail + buffers + cache == freemem
+# mem + buffers
+MFREE=`free -m|grep Mem|cut -c30-41`
+read  -rd '' MFREE <<< "$MFREE"
+BCFREE=`free -m|grep buffers|grep -v cached|cut -c30-41`
+read  -rd '' BCFREE <<< "$BCFREE"
+# swap
+SWUSE=`free -m|grep Swap|cut -c19-30`
+read  -rd '' SWUSE <<< "$SWUSE"
+SWTOT=$(free -m|grep Swap|cut -c12-19)
+read  -rd '' SWTOT <<< "$SWTOT"
+SWPCT=$((($SWUSE*100)/($SWTOT)))
+scale=2
+
+MFREETOT=$(($MFREE + $BCFREE))
+MFREENET=$(($MFREETOT - $SWUSE))
+MFREEWARN=$((($MFREETOT * 66)/100))
+
+if [ $SWPCT -ge 66 ]; then
+ if [ $SWUSE -ge $MFREETOT ]; then
+  EXITSTATE="CRIT: Swap use: $[SWUSE]MB ($[SWPCT]%); Mem Free: $[MFREETOT]MB"
+  EXITCODE=2
+ elif [ $(($SWUSE * 100)) -ge $(($MFREETOT * 66)) ]; then
+  EXITSTATE="WARN: Swap use: $[SWUSE]MB ($[SWPCT]%); Mem Free: $[MFREETOT]MB"
+  EXITCODE=1
+ fi
+else
+  EXITSTATE="OK: Swap use: $[SWUSE]MB ($[SWPCT]%); Mem Free: $[MFREETOT]MB"
+  EXITCODE=0
+fi
+
+echo "$EXITSTATE"
+exit $EXITCODE
+
