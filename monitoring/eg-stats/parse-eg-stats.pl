@@ -16,7 +16,12 @@ if ($MONTH < 10) {
 }
 
 my $posF = "/tmp/eg_stats_position.log";
-my $statsF = "/var/log/evergreen/prod/$YEAR/$MONTH/$DAY/eg_stats.log";
+use Time::Piece;
+my $logdate = Time::Piece->new->strftime('%Y/%m/%d');
+# print $logdate;
+my $loghour = Time::Piece->new->strftime('%H');
+# print $loghour;
+my $statsF = "/var/log/evergreen/prod/$logdate/eg_stats.$loghour.log";
 my $pos; 
 my $loc;
 my $status = 0; #status is OK!
@@ -24,6 +29,8 @@ my $info = "";
 
 #if it exists open it and get the current position
 #if not set the current position to 0
+
+
 if (-e $posF) {
    open(DATA, "<$posF");
    my @values = <DATA>;
@@ -45,6 +52,7 @@ if (-e $posF) {
 } else {
    $pos = 0;
 }
+
 #parse the file and output for Nagios if necessary
 if (-e $statsF) {
    open(DATA, "<$statsF");
@@ -96,5 +104,15 @@ if ($info eq "") {
    $info = "EG-STATS-COLLECTOR STATUS: OK!";
 }
 
+# NEW: make state "WARN, logfile does not exist"
+unless (-e $statsF) {
+   $status = 1;
+   $info = "EG-STATS-COLLECTOR STATUS: WARN, current logfile not found.";
+   #$info = "EG-STATS-COLLECTOR STATUS: WARN; '$statsF' not found.";
+}
+
+
 print $info;
+print "";
 exit $status;
+
