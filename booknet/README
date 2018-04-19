@@ -1,0 +1,59 @@
+The booknet_exporter.pl script is used to produce CSV output
+of holds and circulation data for BookNet Canada and send the 
+output via FTP.  Using this script requires the FTP credentials 
+for the server being transferred to and database access 
+credentials for your Evergreen system.  The script is written 
+in Perl and relies on several libraries listed in the script.  
+
+The script will create three files in this format:
+
+BRANCHDATA_foo_04092018.csv
+LENDINGDATA_foo_04092018.csv
+foo_export_log
+
+where 'foo' is the Evergreen org unit identified for export.
+After generating the files it will transfer them to the FTP
+server supplied if those parameters have been supplied.
+
+Parameters are as follows:
+
+  --org         This is the short name of an org unit.  The export 
+                will create holdings and lending files for any branch 
+                or branches listed and their descendants as long as 
+                the org unit is allowed to own volumes.
+
+                If invoking once for all org units simply supply 
+                the consortial shortname, e.g.
+
+                --org CONS
+
+                If invoking for multiple systems distinctly list each
+                separated by a comma inside double quotes, e.g.
+
+                --org "SystemA,SystemB,SystemD"
+
+
+  --db_host      - required with failover*
+  --db_user      - required with failover*
+  --db_database  - required with failover*
+  --db_password  - required with failover*
+  --db_port      - optional, defaults to 5432
+
+  *Database failover behavior: if the required database parameters are 
+  not sent it will attempt to use a local socket connection.
+
+  --ftp_folder   - optional
+  --ftp_host     - required with failover**
+  --ftp_user     - required even if 'anonymous with failover**'
+  --ftp_password - optional
+  --ftp_port     - optional, defaults to 21 
+
+  **FTP failover behavior: if there is no host and user it will generate the 
+  file but not attempt to transfer it.  i
+
+A typical weekly cron entry will look like this:
+
+30 0 * * 1 . ~/.bashrc && cd /home/opensrf/scripts/booknet/ && ./booknet_exporter.pl \ 
+    --db_host foo-db --db_user foo --db_database foo --db_password foo  
+    --org FOO --ftp_host ftp.foo.foo --ftp_password foo --ftp_user foo
+
