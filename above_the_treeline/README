@@ -29,7 +29,7 @@ Order - this gives acquisitions order data based on the ordering library
 Bibs - this can be the slowest of the files to generate and it's speed will vary 
     widely based on the database size and if it's run the first time or as a followup;
     all other files capture that frame of time for statistics but due to having to 
-    read individual MARC records the bibs will first generate a comprehensive table 
+    read individual MARC records the script will first generate a comprehensive table 
     and then only update in subsequent runs for bibs that have since been edited, 
     it does not honor the date flag
 
