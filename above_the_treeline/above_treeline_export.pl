@@ -142,9 +142,9 @@ if (defined $ftp_host and defined $ftp_user) {
     $ftp = connect_ftp($ftp_host,$ftp_user,$ftp_password,$ftp_port,$ftp_folder);
     put_file($item_file,$ftp,$sql_date);
     put_file($circ_file,$ftp,$sql_date);
-    put_file($hold_file,,$ftp,$sql_date);
-    put_file($order_file,,$ftp,$sql_date);
-    put_file($bib_file,,$ftp,$sql_date);
+    put_file($hold_file,$ftp,$sql_date);
+    put_file($order_file,$ftp,$sql_date);
+    put_file($bib_file,$ftp,$sql_date);
     log_event($dbh,'files transferred',$sql_date);
 }
 
