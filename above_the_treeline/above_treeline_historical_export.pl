@@ -38,7 +38,7 @@ my $ftp_user;
 my $ftp_password;
 my $ftp_port;
 my $output;
-my $run_date = '18000101'
+my $run_date = '18000101';
 my $dbh;
 
 my $ret = GetOptions(
@@ -61,7 +61,7 @@ my $ret = GetOptions(
 abort('must specify --org') unless defined $org;
 $org = lc($org);
 validate_files($files);
-my ($sql_date, $print_date) = format_date($rundate);
+my ($sql_date, $print_date) = format_date($run_date);
 
 if ($db_host and $db_user and $db_password and $db_database) { 
         $dbh = connect_db($db_database,$db_user,$db_password,$db_host,$db_port) or abort("Cannot open database at $db_host $!"); 
@@ -87,7 +87,7 @@ prep_schema($dbh,$sql_date);
 #note that we're using the language in the onboarding doc which can be a bit misleading in Evergreen context
 #notably, the item file contains circ and item data, while circ is an aggregate of sources including statuses 
 if ($files =~ 'item') {
-    $item_file = 'Items_' . $print_date . '.csv';
+    $item_file = 'Items_all_time.csv';
     open my $fh, '>', $item_file or die "Can not open $item_file.\n";
     aggregate_items($dbh,$desc_orgs,$exclude_mods,$sql_date);
     aggregate_circs($dbh,$sql_date);
@@ -97,7 +97,7 @@ if ($files =~ 'item') {
 }
 
 if ($files =~ 'circ') {
-    $circ_file = 'Circs_' . $print_date . '.csv';
+    $circ_file = 'Circs_all_time.csv';
     open my $fh, '>', $circ_file or die "Can not open $circ_file.\n";
     aggregate_transactions($dbh,$desc_orgs,$exclude_mods,$sql_date);   
     generate_circs_file($dbh,$fh);
@@ -106,8 +106,8 @@ if ($files =~ 'circ') {
 }
 
 if ($files =~ 'hold') {
-    $hold_file = 'Holds_' . $print_date . '.csv';
-    $meta_file = 'Metarecords_' . $print_date . '.csv';
+    $hold_file = 'Holds_all_time.csv';
+    $meta_file = 'Metarecords_all_time.csv';
     open my $fh, '>', $hold_file or die "Can not open $hold_file.\n";
     open my $mfh, '>', $meta_file or die "Can not open $meta_file.\n";
     aggregate_holds($dbh,$desc_orgs,$exclude_mods,$sql_date);
@@ -120,7 +120,7 @@ if ($files =~ 'hold') {
 }
 
 if ($files =~ 'order') {
-    $order_file = 'Orders_' . $print_date . '.csv';
+    $order_file = 'Orders_all_time.csv';
     open my $fh, '>', $order_file or die "Can not open $order_file.\n";
     aggregate_orders($dbh,$desc_orgs,$exclude_mods,$sql_date);
     generate_orders_file($dbh,$fh);
@@ -129,7 +129,7 @@ if ($files =~ 'order') {
 }
 
 if ($files =~ 'bib') {
-    $bib_file = 'Bibs_' . $print_date . '.csv';
+    $bib_file = 'Bibs_all_time.csv';
     open my $fh, '>', $bib_file or die "Can not open $bib_file.\n";
     my $bib_table = aggregate_bibs($dbh,$desc_orgs,$exclude_mods,$sql_date,$org);
     generate_bibs_file($dbh,$fh,$bib_table);
@@ -670,7 +670,7 @@ sub aggregate_transactions {
                 JOIN asset.copy_location acl ON acl.id = ac.location 
                 WHERE acl.circulate IS TRUE AND ac.circulate IS TRUE 
                 AND ac.circ_lib IN (' . $desc_orgs  . ') AND ac.circ_modifier NOT IN (' . $exclude_mods . ') 
-                AND create_date::DATE < \'' . $sql_date .  '\'::DATE;
+                ;
                 CREATE INDEX edelweiss_transitems_acidx ON edelweiss.trans_items(ac_id);
                 ALTER TABLE edelweiss.trans_items ADD COLUMN biblio_id INTEGER;';
     $sth = $dbh->prepare($sql);
