@@ -38,12 +38,14 @@ my $ftp_user;
 my $ftp_password;
 my $ftp_port;
 my $output;
+my $run_date = '18000101'
 my $dbh;
 
 my $ret = GetOptions(
     'org:s'          	  => \$org,
     'files:s'             => \$files,
     'exclude_mods:s'      => \$exclude_mods,
+
     'db_host:s'  	      => \$db_host,
     'db_user:s'    	      => \$db_user,
     'db_database:s'       => \$db_database,
@@ -59,7 +61,7 @@ my $ret = GetOptions(
 abort('must specify --org') unless defined $org;
 $org = lc($org);
 validate_files($files);
-my ($sql_date, $print_date) = format_date($run_date);
+my ($sql_date, $print_date) = format_date($rundate);
 
 if ($db_host and $db_user and $db_password and $db_database) { 
         $dbh = connect_db($db_database,$db_user,$db_password,$db_host,$db_port) or abort("Cannot open database at $db_host $!"); 
