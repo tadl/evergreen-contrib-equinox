@@ -1,4 +1,6 @@
-above_treeline_export.pl 
+above_treeline_export.pl - for daily exports
+above_treeline_historical_export.pl - for historical exports at setup, 
+    doesn't take the run_date parameter but ohterwise the same
 
 Creates CSV files as specified in the Edelweiss Analytics for Libraries 
 onboarding documentation.  
