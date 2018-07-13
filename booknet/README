@@ -57,3 +57,8 @@ A typical weekly cron entry will look like this:
     --db_host foo-db --db_user foo --db_database foo --db_password foo  
     --org FOO --ftp_host ftp.foo.foo --ftp_password foo --ftp_user foo
 
+Since the script reports the date that the report is run it should be run on the 
+last day of the reporting period.  I.e. if you are collecting data for Monday - 
+Sunday then run the script after the close of business on Sunday night to have the 
+correct date.
+
