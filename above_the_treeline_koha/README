@@ -1,0 +1,81 @@
+above_treeline_export.pl - for daily exports
+above_treeline_historical_export.pl - for historical exports at setup, 
+    doesn't take the run_date parameter but ohterwise the same
+
+Creates CSV files as specified in the Edelweiss Analytics for Libraries 
+onboarding documentation.  
+
+The following files are created: 
+
+Item - collects asset and circulation data for all time, previous month and year. 
+    All holdings are pulled from descendants of the org defined in the 
+    --org parameter unless the item is deleted or the copy or copy location
+    is set to non-circulating.  The file is generated with a datestamp for the 
+    day it is run on, e.g.  Item_20180220.csv was generated on Feb 20th, 2018. 
+
+Circ - collects daily transaction data for the previous day of when 
+    the file is run by default but will use the date flag to give historical 
+    data as well
+
+Hold - collects holds based on materials owned by an included org unit 
+    and holds with a pickup library of an included org.  This has no 
+    impact when the entire system is being exported but when a subset 
+    of orgs in a consortium with resource sharing are exported some 
+    holds will not export.  This will use the date flag to give you a data set 
+    of how holds were unfilled on that date.
+
+Order - this gives acquisitions order data based on the ordering library 
+    and does not honor the date flag, giving current data for orders as they exist 
+    when the script is run
+
+Bibs - this can be the slowest of the files to generate and it's speed will vary 
+    widely based on the database size and if it's run the first time or as a followup;
+    all other files capture that frame of time for statistics but due to having to 
+    read individual MARC records the script will first generate a comprehensive table 
+    and then only update in subsequent runs for bibs that have since been edited, 
+    it does not honor the date flag
+
+Typical cron entries will include a weekly update of bibs and items and daily updates 
+of the other files, e.g.:  
+
+above_treeline_export.pl --db_host foo.org --db_user foo --db_database everfoo \
+    --db_password passfoo --org CONS --files hold,order,circ \
+    --ftp_host ftp.abovethetreeline.com --ftp_user user --ftp_password password
+
+above_treeline_export.pl --db_host foo.org --db_user foo --db_database everfoo 
+    --db_password passfoo --org CONS --files hold,order,circ \
+    --ftp_host ftp.abovethetreeline.com --ftp_user user --ftp_password password
+
+Switches:
+
+  --files       optional, if not defined all will be created
+                accepts item|circ|hold|bib|order
+                more than one may be specified by using commas 
+                e.g.  --files circ,bib
+
+  --run_date    optional, used for generating files as if the script was 
+                being run on a previous date, if not supplied it defaults to
+                today, note that transactions run for the previous day 
+                so if you want transactions for 2018-02-19 supply the date
+                it would run as as the 20th, e.g. --run_date 20180220 
+
+  --db_host      - required with failover 
+  --db_user      - required with failover
+  --db_database  - required with failover
+  --db_password  - required with failover
+  --db_port      - optional, defaults to 5432
+
+  Database failover behavior: if the required database parameters are 
+  not sent it will attempt to use a local socket connection.
+
+  --ftp_folder   - optional
+  --ftp_host     - required with failover
+  --ftp_user     - required with failover
+  --ftp_password - optional
+  --ftp_port     - optional, defaults to 21
+
+  FTP failover behavior: if there is no host and user it will generate the 
+  file but not attempt to transfer it.  User is required even if it is set 
+  to anonymous.
+
+
