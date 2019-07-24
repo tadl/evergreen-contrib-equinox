@@ -141,7 +141,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RE
       END IF;
       SELECT REPLACE(NOW()::DATE::TEXT, '-', '') INTO extract_date;
       SELECT ou.shortname INTO library_code FROM actor.org_unit ou, asset.copy c WHERE ou.id = c.circ_lib AND c.id = item;
-      SELECT aou.shortname, REPLACE(circ.xact_start::DATE::TEXT, '-', '') INTO last_circ_lib, last_use_date FROM actor.org_unit aou INNER JOIN action.circulation circ ON (circ.circ_lib = aou.id)
+      SELECT aou.shortname, REPLACE(circ.xact_start::DATE::TEXT, '-', '') INTO last_circ_lib, last_use_date FROM actor.org_unit aou INNER JOIN action.all_circulation circ ON (circ.circ_lib = aou.id)
         WHERE circ.target_copy = item ORDER BY circ.xact_start DESC LIMIT 1;
       SELECT REPLACE(xact_start::DATE::TEXT, '-', '') INTO last_use_date FROM action.circulation WHERE target_copy = item ORDER BY xact_start DESC LIMIT 1;
       SELECT circ_count INTO cumulative_use_total FROM extend_reporter.full_circ_count WHERE id = item;
