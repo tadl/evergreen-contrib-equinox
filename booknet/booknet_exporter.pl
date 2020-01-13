@@ -167,9 +167,9 @@ sub uniq {
 
 sub descendants {
     my ($org_name, $dbh) = @_;
-    my $sql = 'SELECT aou.shortname FROM (SELECT * FROM actor.org_unit_descendants((SELECT id FROM actor.org_unit WHERE shortname = \'' . $org_name . '\'))) x JOIN actor.org_unit aou ON aou.id = x.id JOIN actor.org_unit_type aout ON aout.id = aou.ou_type WHERE aout.can_have_vols IS TRUE;';
+    my $sql = 'SELECT aou.shortname FROM (SELECT * FROM actor.org_unit_descendants((SELECT id FROM actor.org_unit WHERE shortname = ?))) x JOIN actor.org_unit aou ON aou.id = x.id JOIN actor.org_unit_type aout ON aout.id = aou.ou_type WHERE aout.can_have_vols IS TRUE;';
     my $sth = $dbh->prepare($sql);
-    $sth->execute();
+    $sth->execute($org_name);
     my @valid_orgs;
     while (my @row = $sth->fetchrow_array) {
         push @valid_orgs, @row;
@@ -179,9 +179,9 @@ sub descendants {
 
 sub get_parent_name {
     my ($org_id) = @_;
-    my $sql = 'SELECT shortname FROM actor.org_unit WHERE id = ' . $org_id . ';';
+    my $sql = 'SELECT shortname FROM actor.org_unit WHERE id = ?;';
     my $sth = $dbh->prepare($sql);
-    $sth->execute();
+    $sth->execute($org_id);
     my $r;
     while (my @row = $sth->fetchrow_array) {
         $r = $row[0];
@@ -191,9 +191,9 @@ sub get_parent_name {
 
 sub get_org_id {
     my ($org_name) = @_;
-    my $sql = 'SELECT id FROM actor.org_unit WHERE shortname = \'' . $org_name . '\';';
+    my $sql = 'SELECT id FROM actor.org_unit WHERE shortname = ?;';
     my $sth = $dbh->prepare($sql);
-    $sth->execute();
+    $sth->execute($org_name);
     my $r;
     while (my @row = $sth->fetchrow_array) {
         $r = $row[0];
@@ -203,9 +203,9 @@ sub get_org_id {
 
 sub get_full_name {
     my ($org_id) = @_;
-    my $sql = 'SELECT name FROM actor.org_unit WHERE id = ' . $org_id . ';';
+    my $sql = 'SELECT name FROM actor.org_unit WHERE id = ?;';
     my $sth = $dbh->prepare($sql);
-    $sth->execute();
+    $sth->execute($org_id);
     my $r;
     while (my @row = $sth->fetchrow_array) {
         $r = $row[0];
@@ -234,9 +234,9 @@ sub format_time {
 
 sub get_post_code {
     my ($org_id) = @_;
-    my $sql = 'SELECT post_code FROM actor.org_address WHERE org_unit = ' . $org_id . ' AND post_code IS NOT NULL ORDER BY address_type = \'MAILING\' LIMIT 1;';
+    my $sql = 'SELECT post_code FROM actor.org_address WHERE org_unit = ? AND post_code IS NOT NULL ORDER BY address_type = \'MAILING\' LIMIT 1;';
     my $sth = $dbh->prepare($sql);
-    $sth->execute();
+    $sth->execute($org_id);
     my $r;
     while (my @row = $sth->fetchrow_array) {
         $r = $row[0];
@@ -247,9 +247,9 @@ sub get_post_code {
 
 sub get_patron_count {
     my ($org_id) = @_;
-    my $sql = 'SELECT COUNT(id) FROM actor.usr WHERE home_ou = ' . $org_id . ' AND deleted IS FALSE AND active IS TRUE;';
+    my $sql = 'SELECT COUNT(id) FROM actor.usr WHERE home_ou = ? AND deleted IS FALSE AND active IS TRUE;';
     my $sth = $dbh->prepare($sql);
-    $sth->execute();
+    $sth->execute($org_id);
     my $r;
     while (my @row = $sth->fetchrow_array) {
         $r = $row[0];
@@ -259,9 +259,9 @@ sub get_patron_count {
 
 sub get_address {
     my ($org_id) = @_;
-    my $sql = 'SELECT street1 || \' \' || street2 || \';\' || city || \';\' || state FROM actor.org_address WHERE org_unit = ' . $org_id . ' AND post_code IS NOT NULL ORDER BY address_type ~* \'MAILING\' LIMIT 1;';
+    my $sql = 'SELECT street1 || \' \' || street2 || \';\' || city || \';\' || state FROM actor.org_address WHERE org_unit = ? AND post_code IS NOT NULL ORDER BY address_type ~* \'MAILING\' LIMIT 1;';
     my $sth = $dbh->prepare($sql);
-    $sth->execute();
+    $sth->execute($org_id);
     my $r;
     while (my @row = $sth->fetchrow_array) {
         $r = $row[0];
@@ -283,7 +283,7 @@ sub get_lending_data {
         ,COUNT(DISTINCT circs_out.id)
         ,COUNT(DISTINCT onorder.id)
     FROM 
-        (SELECT id, call_number FROM asset.copy WHERE circ_lib = ' . $org_id . ' AND deleted IS FALSE) ac 
+        (SELECT id, call_number FROM asset.copy WHERE circ_lib = ? AND deleted IS FALSE) ac 
     LEFT JOIN
         (SELECT id, target_copy FROM action.circulation WHERE xact_start > now() - interval \'1 week\') circs ON circs.target_copy = ac.id
     LEFT JOIN
@@ -297,11 +297,11 @@ sub get_lending_data {
     JOIN
         reporter.super_simple_record ssr ON ssr.id = acn.record 
     LEFT JOIN
-        (SELECT id, current_copy FROM action.hold_request WHERE pickup_lib = ' . $org_id . ' AND capture_time IS NOT NULL AND fulfillment_time IS NULL) holds ON holds.current_copy = ac.id
+        (SELECT id, current_copy FROM action.hold_request WHERE pickup_lib = ? AND capture_time IS NOT NULL AND fulfillment_time IS NULL) holds ON holds.current_copy = ac.id
     GROUP BY 1, 2 
    ;';
     my $sth = $dbh->prepare($sql);
-    $sth->execute();
+    $sth->execute($org_id, $org_id);
     my @holdings;
     while (my @row = $sth->fetchrow_array) {
         push @holdings, {
