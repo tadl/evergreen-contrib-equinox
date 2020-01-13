@@ -276,12 +276,12 @@ sub get_lending_data {
     'SELECT 
         ssr.id
         ,ARRAY_TO_STRING(ssr.isbn,\';\') 
-        ,COUNT(circs.id)
-        ,COUNT(renews.id)
-        ,COUNT(holds.id)
-        ,COUNT(ac.id)
-        ,COUNT(circs_out.id)
-        ,COUNT(onorder.id)
+        ,COUNT(DISTINCT circs.id)
+        ,COUNT(DISTINCT renews.id)
+        ,COUNT(DISTINCT holds.id)
+        ,COUNT(DISTINCT ac.id)
+        ,COUNT(DISTINCT circs_out.id)
+        ,COUNT(DISTINCT onorder.id)
     FROM 
         (SELECT id, call_number FROM asset.copy WHERE circ_lib = ' . $org_id . ' AND deleted IS FALSE) ac 
     LEFT JOIN
