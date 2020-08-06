@@ -224,6 +224,8 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RET
     price TEXT := '';
     lms_item_type TEXT := '';
     class_num TEXT := '';
+    subject TEXT := '';
+    genre TEXT := '';
     extract_date TEXT := '';
     output TEXT := '';
     lms_bib_id BIGINT;
@@ -246,9 +248,18 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RET
         collectionHQ.attempt_year((XPATH('//marc:datafield[@tag="260"][1]/marc:subfield[@code="c"]/text()', marc::XML, ARRAY[ARRAY['marc', 'http://www.loc.gov/MARC21/slim']]))[1]::TEXT),
         SUBSTRING(naco_normalize((XPATH('//marc:datafield[@tag="260"][1]/marc:subfield[@code="b"]/text()', marc::XML, ARRAY[ARRAY['marc', 'http://www.loc.gov/MARC21/slim']]))[1]::TEXT, 'b') FROM 1 FOR 100),
         collectionHQ.attempt_price((XPATH('//marc:datafield[@tag="020"][1]/marc:subfield[@code="c"]/text()', marc::XML, ARRAY[ARRAY['marc', 'http://www.loc.gov/MARC21/slim']]))[1]::TEXT),
-        SUBSTRING(naco_normalize((XPATH('//marc:datafield[@tag="082"][1]/marc:subfield[@code="a"][1]/text()', marc::XML, ARRAY[ARRAY['marc', 'http://www.loc.gov/MARC21/slim']]))[1]::TEXT, 'a') FROM 1 FOR 20)
-      INTO edition_num, publication_date, publisher, price, class_num
-      FROM biblio.record_entry
+        SUBSTRING(naco_normalize((XPATH('//marc:datafield[@tag="082"][1]/marc:subfield[@code="a"][1]/text()', marc::XML, ARRAY[ARRAY['marc', 'http://www.loc.gov/MARC21/slim']]))[1]::TEXT, 'a') FROM 1 FOR 20),
+        (SELECT '!!!' || SUBSTRING(STRING_AGG("six50",'!!!') FROM 1 FOR 200) || '!!!' FROM
+          (SELECT naco_normalize( unnest(XPATH('//marc:datafield[@tag="650"]/marc:subfield[@code="a"]/text()', marc::XML, ARRAY[ARRAY['marc', 'http://www.loc.gov/MARC21/slim']]))::TEXT) AS "six50"
+		FROM BIBLIO.RECORD_ENTRY WHERE ID=A.ID ) AS B
+        ),
+        (SELECT '!!!' || SUBSTRING(STRING_AGG("six55",'!!!') FROM 1 FOR 200) || '!!!'  FROM
+              (SELECT naco_normalize( unnest(XPATH('//marc:datafield[@tag="655"]/marc:subfield[@code="a"]/text()', marc::XML, ARRAY[ARRAY['marc', 'http://www.loc.gov/MARC21/slim']]))::TEXT) AS "six55"
+            FROM BIBLIO.RECORD_ENTRY WHERE ID=A.ID ) AS C
+        )
+
+      INTO edition_num, publication_date, publisher, price, class_num, subject, genre
+      FROM biblio.record_entry A
       WHERE id = lms_bib_id;
 
       SELECT circ_modifier INTO lms_item_type FROM asset.copy c, asset.call_number cn WHERE cn.record = lms_bib_id AND c.circ_lib IN (SELECT id FROM actor.org_unit_descendants(org_unit_id)) AND cn.id = c.call_number AND NOT cn.deleted AND NOT c.deleted LIMIT 1;
@@ -267,7 +278,9 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RET
         || COALESCE(price, '') || ','
         || COALESCE(collectionHQ.quote(lms_item_type), '') || ','
         || COALESCE(collectionHQ.quote(class_num), '') || ','
-        || COALESCE(collectionHQ.quote(extract_date), '');
+        || COALESCE(collectionHQ.quote(extract_date), '') || ','
+        || COALESCE(collectionHQ.quote(subject), '') || ','
+        || COALESCE(collectionHQ.quote(genre), '');
   
        RAISE INFO '%', output;
 
