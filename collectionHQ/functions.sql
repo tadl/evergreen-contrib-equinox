@@ -66,6 +66,67 @@ CREATE OR REPLACE FUNCTION collectionHQ.attempt_price (TEXT) RETURNS TEXT AS $$
 $$ LANGUAGE PLPGSQL STRICT STABLE;
 
 
+CREATE OR REPLACE FUNCTION collectionHQ.attempt_isbn (BIGINT) RETURNS TEXT AS $$
+  DECLARE
+    bib ALIAS FOR $1;
+    output TEXT[];  -- Coding this now in case we ever can send more than one isbn
+    loopvar TEXT;
+  BEGIN
+
+  -- mine metabib.real_full_rec
+    FOR loopvar IN
+      SELECT regexp_replace(value,'^\s*([^\s\(\)\:\.]*)[\s\(\)\:\.]*.*$','\1','g')
+      FROM metabib.real_full_rec where
+        tag='020' AND
+        subfield in('a','z') AND
+        length(regexp_replace(value,'^\s*([^\s\(\)\:\.]*)[\s\(\)\:\.]*.*$','\1','g')) < 14 AND
+        record = bib
+        ORDER BY length(regexp_replace(value,'^\s*([^\s\(\)\:\.]*)[\s\(\)\:\.]*.*$','\1','g')) DESC, regexp_replace(value,'^\s*([^\s\(\)\:\.]*)[\s\(\)\:\.]*.*$','\1','g')
+    LOOP
+      output = array_append(output, loopvar);
+    END LOOP;
+
+  -- Fail over to reporter.materialized_simple_record
+    IF array_length(output, 1) = 0
+    THEN
+      FOR loopvar IN
+        SELECT regexp_replace(isbn,'^\s*([^\s\(\)\:\.]*)[\s\(\)\:\.]*.*$','\1','g'),* FROM
+        (
+          SELECT unnest(isbn) AS "isbn" FROM
+          reporter.materialized_simple_record
+          WHERE
+          id = bib
+        ) AS a
+        WHERE
+        length(regexp_replace(isbn,'^\s*([^\s\(\)\:\.]*)[\s\(\)\:\.]*.*$','\1','g')) < 14
+        ORDER BY length(regexp_replace(isbn,'^\s*([^\s\(\)\:\.]*)[\s\(\)\:\.]*.*$','\1','g')) DESC, regexp_replace(isbn,'^\s*([^\s\(\)\:\.]*)[\s\(\)\:\.]*.*$','\1','g')
+      LOOP
+        output = array_append(output, loopvar);
+      END LOOP;
+    END IF;
+    IF array_length(output, 1) = 0
+    THEN
+    FOR loopvar IN
+        EXECUTE E'SELECT \'\' AS a;'
+      LOOP
+        output = array_append(output, loopvar);
+      END LOOP;
+    END IF;
+
+    RETURN output[1];
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      FOR loopvar IN
+        EXECUTE E'SELECT \'\' AS a;'
+      LOOP
+        output = array_append(output, loopvar);
+      END LOOP;
+  RETURN output[1];
+  END;
+$$ LANGUAGE plpgsql STRICT STABLE;
+
+
 CREATE OR REPLACE FUNCTION collectionHQ.quote (TEXT) RETURNS TEXT AS $$
   DECLARE
     value ALIAS FOR $1;
@@ -120,13 +181,10 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_item_rows_to_stdout (TEXT, INT) RE
       SELECT id FROM asset.copy WHERE NOT deleted AND circ_lib IN (SELECT id FROM actor.org_unit_descendants(org_unit_id)) ORDER BY id
     LOOP
 
-      SELECT cn.record, cn.label
-      INTO lms_bib_id, filter_level_1
+      SELECT cn.record, cn.label, collectionHQ.attempt_isbn(cn.record::BIGINT)
+      INTO lms_bib_id, filter_level_1, isbn
       FROM asset.call_number cn, asset.copy c 
       WHERE c.call_number = cn.id AND c.id =  item;
-      SELECT r.isbn[1] INTO isbn
-      FROM reporter.materialized_simple_record r
-      WHERE id = lms_bib_id;
       SELECT collectionHQ.attempt_price(ac.price::TEXT), barcode, ac.status,
              REPLACE(create_date::DATE::TEXT, '-', ''),
              CASE WHEN floating::INT > 0 THEN 'Y' ELSE NULL END
@@ -237,7 +295,7 @@ CREATE OR REPLACE FUNCTION collectionHQ.write_bib_rows_to_stdout (TEXT, INT) RET
       SELECT DISTINCT bre.id FROM biblio.record_entry bre JOIN asset.call_number acn ON (acn.record = bre.id) WHERE acn.owning_lib IN (SELECT id FROM actor.org_unit_descendants(org_unit_id)) AND NOT acn.deleted AND NOT bre.deleted
     LOOP
 
-      SELECT r.isbn[1],
+      SELECT collectionHQ.attempt_isbn(r.id::BIGINT),
              SUBSTRING(r.title FROM 1 FOR 100),
              SUBSTRING(r.author FROM 1 FOR 50)
       INTO isbn, title, author
