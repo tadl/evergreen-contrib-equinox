@@ -87,7 +87,7 @@ prep_schema($dbh,$sql_date);
 #note that we're using the language in the onboarding doc which can be a bit misleading in Evergreen context
 #notably, the item file contains circ and item data, while circ is an aggregate of sources including statuses 
 if ($files =~ 'item') {
-    $item_file = 'Items_' . $print_date . '.csv';
+    $item_file = 'Items_' . $org . '_' . $print_date . '.csv';
     open my $fh, '>', $item_file or die "Can not open $item_file.\n";
     aggregate_items($dbh,$desc_orgs,$exclude_mods,$sql_date);
     aggregate_circs($dbh,$sql_date);
@@ -97,7 +97,7 @@ if ($files =~ 'item') {
 }
 
 if ($files =~ 'circ') {
-    $circ_file = 'Circs_' . $print_date . '.csv';
+    $circ_file = 'Circs_' . $org . '_' . $print_date . '.csv';
     open my $fh, '>', $circ_file or die "Can not open $circ_file.\n";
     aggregate_transactions($dbh,$desc_orgs,$exclude_mods,$sql_date);   
     generate_circs_file($dbh,$fh);
@@ -106,7 +106,7 @@ if ($files =~ 'circ') {
 }
 
 if ($files =~ 'hold') {
-    $hold_file = 'Holds_' . $print_date . '.csv';
+    $hold_file = 'Holds_' . $org . '_' . $print_date . '.csv';
     $meta_file = 'Metarecords_' . $print_date . '.csv';
     open my $fh, '>', $hold_file or die "Can not open $hold_file.\n";
     open my $mfh, '>', $meta_file or die "Can not open $meta_file.\n";
@@ -120,7 +120,7 @@ if ($files =~ 'hold') {
 }
 
 if ($files =~ 'order') {
-    $order_file = 'Orders_' . $print_date . '.csv';
+    $order_file = 'Orders_' . $org . '_' . $print_date . '.csv';
     open my $fh, '>', $order_file or die "Can not open $order_file.\n";
     aggregate_orders($dbh,$desc_orgs,$exclude_mods,$sql_date);
     generate_orders_file($dbh,$fh);
@@ -129,7 +129,7 @@ if ($files =~ 'order') {
 }
 
 if ($files =~ 'bib') {
-    $bib_file = 'Bibs_' . $print_date . '.csv';
+    $bib_file = 'Bibs_' . $org . '_' . $print_date . '.csv';
     open my $fh, '>', $bib_file or die "Can not open $bib_file.\n";
     my $bib_table = aggregate_bibs($dbh,$desc_orgs,$exclude_mods,$sql_date,$org);
     generate_bibs_file($dbh,$fh,$bib_table);
@@ -759,7 +759,9 @@ sub aggregate_transactions {
 sub generate_items_file {
     my ($dbh, $fh) = @_;
 
+    print $fh "copy_id,barcode,biblio_id,eans,circ_modifier,call_number,copy_location,library,create_date,status,last_circ,last_checkin,last_due,monthly_circs,annual_circs,all_circs,fund\n";
     my $sql = 'SELECT
+        i,
         i.ac_id
         ,i.barcode
         ,i.biblio_id
@@ -781,48 +783,25 @@ sub generate_items_file {
     LEFT JOIN edelweiss.circs ec ON ec.ac_id = i.ac_id;';
     my $sth = $dbh->prepare($sql);
     $sth->execute();
-    my @results;
     while (my @row = $sth->fetchrow_array) {
-        push @results, {
-            copy_id         => $row[0],
-            barcode         => csv_protect_string($row[1]),
-            biblio_id       => $row[2],
-            eans            => csv_protect_string($row[3]),
-            circ_modifier   => csv_protect_string($row[4]),
-            call_number     => csv_protect_string($row[5]),
-            copy_location   => csv_protect_string($row[6]),
-            library         => csv_protect_string($row[7]),
-            create_date     => $row[8],
-            status          => csv_protect_string($row[9]),
-            last_circ       => $row[10],
-            last_checkin    => $row[11],
-            last_due        => $row[12],
-            monthly_circs   => $row[13],
-            annual_circs    => $row[14],
-            all_circs       => $row[15],
-            fund            => csv_protect_string($row[16])
-        };
-    }
-
-    print $fh "copy_id,barcode,biblio_id,eans,circ_modifier,call_number,copy_location,library,create_date,status,last_circ,last_checkin,last_due,monthly_circs,annual_circs,all_circs,fund\n";
-    foreach my $built_hash( @results ) {
-        print $fh "$built_hash->{copy_id},";
-        print $fh "$built_hash->{barcode},";
-        print $fh "$built_hash->{biblio_id},";
-        print $fh "$built_hash->{eans},";
-        print $fh "$built_hash->{circ_modifier},";
-        print $fh "$built_hash->{call_number},";
-        print $fh "$built_hash->{copy_location},";
-        print $fh "$built_hash->{library},";
-        print $fh "$built_hash->{create_date},";
-        print $fh "$built_hash->{status},";
-	print $fh "$built_hash->{last_circ},";
-        print $fh "$built_hash->{last_checkin},";
-        print $fh "$built_hash->{last_due},";
-        print $fh "$built_hash->{monthly_circs},";
-        print $fh "$built_hash->{annual_circs},";
-        print $fh "$built_hash->{all_circs},";
-        print $fh "$built_hash->{fund}\n";
+        my $copy_id         = $row[0];
+        my $barcode         = csv_protect_string($row[1]);
+        my $biblio_id       = $row[2];
+        my $eans            = csv_protect_string($row[3]);
+        my $circ_modifier   = csv_protect_string($row[4]);
+        my $call_number     = csv_protect_string($row[5]);
+        my $copy_location   = csv_protect_string($row[6]);
+        my $library         = csv_protect_string($row[7]);
+        my $create_date     = $row[8];
+        my $status          = csv_protect_string($row[9]);
+        my $last_circ       = $row[10];
+        my $last_checkin    = $row[11];
+        my $last_due        = $row[12];
+        my $monthly_circs   = $row[13];
+        my $annual_circs    = $row[14];
+        my $all_circs       = $row[15];
+        my $fund            = csv_protect_string($row[16]);
+        print $fh "$copy_id,$barcode,$biblio_id,$eans,$circ_modifier,$call_number,$copy_location,$library,$create_date,$status,$last_circ,$last_checkin,$last_due,$monthly_circs,$annual_circs,$all_circs,$fund\n";
     }
     return;
 }
@@ -855,26 +834,18 @@ sub generate_orders_file {
 sub generate_holds_file {
     my ($dbh, $fh) = @_;
 
+    print $fh "biblio_id,hold_count,holds_branch\n";
     my $sql = 'SELECT biblio_id, hold_type, COUNT(id), holds_branch 
     FROM edelweiss.holds GROUP BY 1, 2, 4';
     my $sth = $dbh->prepare($sql);
     $sth->execute();
     
-    my @results;
     while (my @row = $sth->fetchrow_array) {
-        push @results, {
-            biblio_id       => $row[0],
-            hold_type       => $row[1],
-            hold_count      => $row[2],
-            holds_branch    => csv_protect_string($row[3])
-        };
-    }
-
-    print $fh "biblio_id,hold_count,holds_branch\n";
-    foreach my $built_hash( @results ) {
-        print $fh "$built_hash->{biblio_id},";
-        print $fh "$built_hash->{hold_count},";
-        print $fh "$built_hash->{holds_branch}\n";
+        my $biblio_id       = $row[0];
+        my $hold_type       = $row[1];
+        my $hold_count      = $row[2];
+        my $holds_branch    = csv_protect_string($row[3]);
+        print $fh "$biblio_id,$hold_type,$hold_count,$holds_branch\n";
     }
     return;
 }
@@ -882,6 +853,7 @@ sub generate_holds_file {
 sub generate_circs_file {
     my ($dbh, $fh) = @_;
 
+    print $fh "copy_id,barcode,biblio_id,transaction_type,transaction_date,transaction_branch,due_date\n";
     my $sql = 'SELECT
         t.ac_id
         ,t.barcode
@@ -893,28 +865,15 @@ sub generate_circs_file {
     FROM edelweiss.transactions t;';
     my $sth = $dbh->prepare($sql);
     $sth->execute();
-    my @results;
     while (my @row = $sth->fetchrow_array) {
-        push @results, {       
-            copy_id         => $row[0],
-            barcode         => csv_protect_string($row[1]),
-            biblio_id       => $row[2],
-            trans_type      => csv_protect_string($row[3]),
-            trans_date      => $row[4],
-            trans_branch    => csv_protect_string($row[5]),
-            due_date        => $row[6]
-        };
-    }
-
-    print $fh "copy_id,barcode,biblio_id,transaction_type,transaction_date,transaction_branch,due_date\n";
-    foreach my $built_hash( @results ) {
-        print $fh "$built_hash->{copy_id},";
-        print $fh "$built_hash->{barcode},";
-        print $fh "$built_hash->{biblio_id},";
-        print $fh "$built_hash->{trans_type},";
-        print $fh "$built_hash->{trans_date},";
-        print $fh "$built_hash->{trans_branch},";
-        print $fh "$built_hash->{due_date}\n"; 
+        my $copyid = $row[0];
+        my $barcode = csv_protect_string($row[1]);
+        my $biblio_id = $row[2];
+        my $trans_type = csv_protect_string($row[3]);
+        my $trans_date = $row[4];
+        my $trans_branch = csv_protect_string($row[5]);
+        my $due_date = $row[6];
+        print $fh "$copyid,$barcode,$biblio_id,$trans_type,$trans_date,$trans_branch,$due_date\n";
     }
     return;
 }
@@ -922,6 +881,7 @@ sub generate_circs_file {
 sub generate_bibs_file {
     my ($dbh, $fh, $bib_table) = @_;
 
+    print $fh "biblio_id,eans,material_type,title,author,series,pub_date,publisher_supplier,price\n";
     my $sql = 'SELECT biblio_id
                 ,ARRAY_TO_STRING(eans,\',\')
                 ,ARRAY_TO_STRING(material_type,\',\')
@@ -935,32 +895,17 @@ sub generate_bibs_file {
     my $sth = $dbh->prepare($sql);
     $sth->execute();
 
-    my @results;
     while (my @row = $sth->fetchrow_array) {
-        push @results, {
-            biblio_id            => $row[0],
-            eans                 => csv_protect_string($row[1]),
-            material_type        => csv_protect_string($row[2]),
-            title                => csv_protect_string($row[3]),
-            author               => csv_protect_string($row[4]),
-            series               => csv_protect_string($row[5]),
-            pub_date             => csv_protect_string($row[6]),
-            publisher_supplier   => csv_protect_string($row[7]),
-            price                => csv_protect_string($row[8])
-        };
-    }
-
-    print $fh "biblio_id,eans,material_type,title,author,series,pub_date,publisher_supplier,price\n";
-    foreach my $built_hash( @results ) {
-        print $fh "$built_hash->{biblio_id},";
-        print $fh "$built_hash->{eans},";
-        print $fh "$built_hash->{material_type},";
-        print $fh "$built_hash->{title},";
-        print $fh "$built_hash->{author},";
-        print $fh "$built_hash->{series},";
-        print $fh "$built_hash->{pub_date},";
-        print $fh "$built_hash->{publisher_supplier},";
-        print $fh "$built_hash->{price}\n";
+        my $biblio_id            = $row[0];
+        my $eans                 = csv_protect_string($row[1]);
+        my $material_type        = csv_protect_string($row[2]);
+        my $title                = csv_protect_string($row[3]);
+        my $author               = csv_protect_string($row[4]);
+        my $series               = csv_protect_string($row[5]);
+        my $pub_date             = csv_protect_string($row[6]);
+        my $publisher_supplier   = csv_protect_string($row[7]);
+        my $price                = csv_protect_string($row[8]);
+        print $fh "$biblio_id,$eans,$material_type,$title,$author,$series,$pub_date,$publisher_supplier,$price\n";
     }
     return;
 }
@@ -968,24 +913,18 @@ sub generate_bibs_file {
 sub generate_metarecords_file {
     my ($dbh, $fh) = @_;
 
+    print $fh "metarecord,biblio_id\n";
     my $sql = 'SELECT DISTINCT metarecord, source FROM metabib.metarecord_source_map 
     WHERE metarecord IN (SELECT DISTINCT target FROM edelweiss.holds WHERE hold_type = \'M\' AND biblio_id IS NOT NULL);';
     my $sth = $dbh->prepare($sql);
     $sth->execute();
 
-    my @results;
     while (my @row = $sth->fetchrow_array) {
-        push @results, {
-            metarecord      => $row[0],
-            biblio_id       => $row[1]
-        };
+        my $metarecord      = $row[0];
+        my $biblio_id       = $row[1];
+        print $fh "$metarecord,$biblio_id\n";
     }
 
-    print $fh "metarecord,biblio_id\n";
-    foreach my $built_hash( @results ) {
-        print $fh "$built_hash->{metarecord},";
-        print $fh "$built_hash->{biblio_id}\n";
-    }
     return;
 }
 
