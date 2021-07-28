@@ -24,7 +24,7 @@ use DBI;
 use Net::FTP;
 use Time::Local;
 
-my $org;
+my $orgStr;
 my $files = 'circ,order,hold,bib,item';
 my $exclude_mods;
 my $run_date;
@@ -42,7 +42,7 @@ my $output;
 my $dbh;
 
 my $ret = GetOptions(
-    'org:s'          	  => \$org,
+    'org:s'            	  => \$orgStr,
     'files:s'             => \$files,
     'exclude_mods:s'      => \$exclude_mods,
     'run_date:s'          => \$run_date,
@@ -58,8 +58,8 @@ my $ret = GetOptions(
     'ftp_port:s'          => \$ftp_port
 );
 
-abort('must specify --org') unless defined $org;
-$org = lc($org);
+abort('must specify --org') unless defined $orgStr;
+$orgStr = lc($orgStr);
 validate_files($files);
 my ($sql_date, $print_date) = format_date($run_date);
 
@@ -72,83 +72,87 @@ if ($db_host and $db_user and $db_password and $db_database) {
 if (!defined $ftp_user and !defined $ftp_host) {
     print STDERR "Incomplete FTP settings.  No file will be transferred.\n"; }
 
-my $org_id = get_org_id($org);
-my $desc_orgs = descendants($org_id,$dbh);
+my @org_list = split /,/, $orgStr;
+foreach (@org_list) {
+    my $org = $_;
+    my $org_id = get_org_id($org);
+    my $desc_orgs = descendants($org_id,$dbh);
 
-my $circ_file;
-my $hold_file;
-my $order_file;
-my $bib_file;
-my $item_file;
-my $meta_file;
+    my $circ_file;
+    my $hold_file;
+    my $order_file;
+    my $bib_file;
+    my $item_file;
+    my $meta_file;
 
-prep_schema($dbh,$sql_date);
+    prep_schema($dbh,$sql_date);
 
-#note that we're using the language in the onboarding doc which can be a bit misleading in Evergreen context
-#notably, the item file contains circ and item data, while circ is an aggregate of sources including statuses 
-if ($files =~ 'item') {
-    $item_file = 'Items_' . $org . '_' . $print_date . '.csv';
-    open my $fh, '>', $item_file or die "Can not open $item_file.\n";
-    aggregate_items($dbh,$desc_orgs,$exclude_mods,$sql_date);
-    aggregate_circs($dbh,$sql_date);
-    generate_items_file($dbh,$fh);
-    close $fh;
-    log_event($dbh,'items file generated',$sql_date);
+    #note that we're using the language in the onboarding doc which can be a bit misleading in Evergreen context
+    #notably, the item file contains circ and item data, while circ is an aggregate of sources including statuses 
+    if ($files =~ 'item') {
+        $item_file = 'Items_' . $org . '_' . $print_date . '.csv';
+        open my $fh, '>', $item_file or die "Can not open $item_file.\n";
+        aggregate_items($dbh,$desc_orgs,$exclude_mods,$sql_date);
+        aggregate_circs($dbh,$sql_date);
+        generate_items_file($dbh,$fh);
+        close $fh;
+        log_event($dbh,'items file generated',$sql_date);
+    }
+
+    if ($files =~ 'circ') {
+        $circ_file = 'Circs_' . $org . '_' . $print_date . '.csv';
+        open my $fh, '>', $circ_file or die "Can not open $circ_file.\n";
+        aggregate_transactions($dbh,$desc_orgs,$exclude_mods,$sql_date);   
+        generate_circs_file($dbh,$fh);
+        close $fh;
+        log_event($dbh,'circs file generated',$sql_date);
+    }
+
+    if ($files =~ 'hold') {
+        $hold_file = 'Holds_' . $org . '_' . $print_date . '.csv';
+        $meta_file = 'Metarecords_' . $print_date . '.csv';
+        open my $fh, '>', $hold_file or die "Can not open $hold_file.\n";
+        open my $mfh, '>', $meta_file or die "Can not open $meta_file.\n";
+        aggregate_holds($dbh,$desc_orgs,$exclude_mods,$sql_date);
+        generate_holds_file($dbh,$fh);
+        generate_metarecords_file($dbh,$mfh);
+        close $fh;
+        close $mfh;
+        log_event($dbh,'holds file generated',$sql_date);
+        log_event($dbh,'meta records file generated',$sql_date);
+    }
+
+    if ($files =~ 'order') {
+        $order_file = 'Orders_' . $org . '_' . $print_date . '.csv';
+        open my $fh, '>', $order_file or die "Can not open $order_file.\n";
+        aggregate_orders($dbh,$desc_orgs,$exclude_mods,$sql_date);
+        generate_orders_file($dbh,$fh);
+        close $fh;
+        log_event($dbh,'orders file generated',$sql_date);
+    }
+
+    if ($files =~ 'bib') {
+        $bib_file = 'Bibs_' . $org . '_' . $print_date . '.csv';
+        open my $fh, '>', $bib_file or die "Can not open $bib_file.\n";
+        my $bib_table = aggregate_bibs($dbh,$desc_orgs,$exclude_mods,$sql_date,$org);
+        generate_bibs_file($dbh,$fh,$bib_table);
+        close $fh;
+        log_event($dbh,"$bib_table file generated",$sql_date);
+    }
+
+    my $ftp; 
+    if (defined $ftp_host and defined $ftp_user) {
+        $ftp = connect_ftp($ftp_host,$ftp_user,$ftp_password,$ftp_port,$ftp_folder);
+        if ($files =~ 'item') { put_file($item_file,$ftp,$sql_date); }
+        if ($files =~ 'circ') { put_file($circ_file,$ftp,$sql_date); }
+        if ($files =~ 'hold') { put_file($hold_file,$ftp,$sql_date); }
+        if ($files =~ 'order') { put_file($order_file,$ftp,$sql_date); }
+        if ($files =~ 'bib') { put_file($bib_file,$ftp,$sql_date); }
+        log_event($dbh,'files transferred',$sql_date);
+    }
+
+    log_event($dbh,'process complete',$sql_date);
 }
-
-if ($files =~ 'circ') {
-    $circ_file = 'Circs_' . $org . '_' . $print_date . '.csv';
-    open my $fh, '>', $circ_file or die "Can not open $circ_file.\n";
-    aggregate_transactions($dbh,$desc_orgs,$exclude_mods,$sql_date);   
-    generate_circs_file($dbh,$fh);
-    close $fh;
-    log_event($dbh,'circs file generated',$sql_date);
-}
-
-if ($files =~ 'hold') {
-    $hold_file = 'Holds_' . $org . '_' . $print_date . '.csv';
-    $meta_file = 'Metarecords_' . $print_date . '.csv';
-    open my $fh, '>', $hold_file or die "Can not open $hold_file.\n";
-    open my $mfh, '>', $meta_file or die "Can not open $meta_file.\n";
-    aggregate_holds($dbh,$desc_orgs,$exclude_mods,$sql_date);
-    generate_holds_file($dbh,$fh);
-    generate_metarecords_file($dbh,$mfh);
-    close $fh;
-    close $mfh;
-    log_event($dbh,'holds file generated',$sql_date);
-    log_event($dbh,'meta records file generated',$sql_date);
-}
-
-if ($files =~ 'order') {
-    $order_file = 'Orders_' . $org . '_' . $print_date . '.csv';
-    open my $fh, '>', $order_file or die "Can not open $order_file.\n";
-    aggregate_orders($dbh,$desc_orgs,$exclude_mods,$sql_date);
-    generate_orders_file($dbh,$fh);
-    close $fh;
-    log_event($dbh,'orders file generated',$sql_date);
-}
-
-if ($files =~ 'bib') {
-    $bib_file = 'Bibs_' . $org . '_' . $print_date . '.csv';
-    open my $fh, '>', $bib_file or die "Can not open $bib_file.\n";
-    my $bib_table = aggregate_bibs($dbh,$desc_orgs,$exclude_mods,$sql_date,$org);
-    generate_bibs_file($dbh,$fh,$bib_table);
-    close $fh;
-    log_event($dbh,"$bib_table file generated",$sql_date);
-}
-
-my $ftp; 
-if (defined $ftp_host and defined $ftp_user) {
-    $ftp = connect_ftp($ftp_host,$ftp_user,$ftp_password,$ftp_port,$ftp_folder);
-    if ($files =~ 'item') { put_file($item_file,$ftp,$sql_date); }
-    if ($files =~ 'circ') { put_file($circ_file,$ftp,$sql_date); }
-    if ($files =~ 'hold') { put_file($hold_file,$ftp,$sql_date); }
-    if ($files =~ 'order') { put_file($order_file,$ftp,$sql_date); }
-    if ($files =~ 'bib') { put_file($bib_file,$ftp,$sql_date); }
-    log_event($dbh,'files transferred',$sql_date);
-}
-
-log_event($dbh,'process complete',$sql_date);
 
 # ============ beyond here the subs  
 

@@ -53,7 +53,7 @@ Switches:
 
   --org         - required
                 the short org unit name of the org unit to export, could be a single 
-                system or a consortium
+                system or a consortium, will also accept multiples with a comma between them
 
   --files       optional, if not defined all will be created
                 accepts item|circ|hold|bib|order
