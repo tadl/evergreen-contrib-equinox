@@ -765,7 +765,6 @@ sub generate_items_file {
 
     print $fh "copy_id,barcode,biblio_id,eans,circ_modifier,call_number,copy_location,library,create_date,status,last_circ,last_checkin,last_due,monthly_circs,annual_circs,all_circs,fund\n";
     my $sql = 'SELECT
-        i,
         i.ac_id
         ,i.barcode
         ,i.biblio_id
